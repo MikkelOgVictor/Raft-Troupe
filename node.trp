@@ -76,7 +76,7 @@ import lists
 *)
 
 datatype Atoms = 
-                WAIT | SUS | DONE
+                WAIT | SUS |  DONE
                 | SEND_HEARTBEAT 
                 | RAFT_UPDATE 
                 | NOT_LEADER
@@ -270,13 +270,13 @@ let
     fun raft_spawn_alias (state_machine, aliases, snapshot_cond) = 
         initiate_distributed_nodes aliases state_machine snapshot_cond
     | raft_spawn_alias (state_machine, aliases) = 
-        raft_spawn_alias (state_machine, aliases, 50, false)
+        raft_spawn_alias (state_machine, aliases, 50)
 
     (* Spawns a Raft network, which can be contacted to
     communicate with their state-machines *)
     fun raft_spawn (state_machine, n, snapshot_cond) =
         initiate_nodes n state_machine snapshot_cond
-    | raft_spawn (state_machine) = raft_spawn (state_machine, 5, 50, false)
+    | raft_spawn (state_machine, n) = raft_spawn (state_machine, n, 50)
 
 in
     [ ("raft_dial", raft_dial)
