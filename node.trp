@@ -120,12 +120,6 @@ let
 
     fun min a b = if a > b then b else a
 
-    (* Prints if verbose is true. *)
-    fun verbose_print x verbose = 
-        (* Disabled for library *)
-        (* if verbose then print x else *) 
-        ()
-
     (* #IMPORT libs/quickselect.trp *)
 
     (* #IMPORT libs/log.trp *)
@@ -195,7 +189,7 @@ let
     (* #IMPORT ./libs/nodes/candidate.trp *)
     (* #IMPORT ./libs/nodes/follower.trp *)
 
-    (* A node is dormant until it has received the references of all other nodes. *)
+    (* A node is dormant until it has received the references of all other <nodes. *)
     fun dormant_node node =
         if length(node.all_nodes) < node.node_amount then
             receive [
@@ -207,7 +201,7 @@ let
     
     (* Defines a default node, being a follower in term 1 without a leader and
     the state-machine in its beginning state *)
-    fun default_node id all_nodes node_amount state_machine snapshot_cond verbose = 
+    fun default_node id all_nodes node_amount state_machine snapshot_cond = 
         let val node = {
             all_nodes = all_nodes,
             id = id,
@@ -221,29 +215,28 @@ let
                 | _ => ([], WAIT, fn x => x ()),
             snapshot_cond = snapshot_cond,
             node_amount = node_amount,
-            serialkeys = [],
-            verbose = verbose
+            serialkeys = []
         }
         in dormant_node node
     end
 
     (* Spawn a state-machine on a seperate thread, creates a record*)
-    fun initiate_node state_machine snapshot_cond node_amount id verbose = 
-        spawn (fn () => default_node id [] node_amount state_machine snapshot_cond verbose)
+    fun initiate_node state_machine snapshot_cond node_amount id = 
+        spawn (fn () => default_node id [] node_amount state_machine snapshot_cond)
 
     (* Sends a list of all nodes to all nodes *)
     fun add_refs nodes = 
         map (fn x => send(x, (ADD_NODES, nodes))) nodes
     
     (* Spawn n nodes*)
-    fun initiate_nodes n state_machine snapshot_cond verbose =
+    fun initiate_nodes n state_machine snapshot_cond =
         let val part_init = initiate_node state_machine snapshot_cond n
             fun spawn_nodes n acc_id =
                 case n of
                 0 => []
                 | x => append 
                     (spawn_nodes (x - 1) (acc_id ^ "I")) 
-                    [(part_init acc_id verbose)]
+                    [(part_init acc_id)]
 
             val nodes = spawn_nodes n "I"
         in 
@@ -252,16 +245,16 @@ let
     end
 
     (* Spawn a state-machine on some alias *)
-    fun initiate_distributed_node state_machine snapshot_cond node_amount id alias verbose = 
-        spawn(alias, fn () => (default_node id [] node_amount state_machine snapshot_cond verbose))
+    fun initiate_distributed_node state_machine snapshot_cond node_amount id alias = 
+        spawn(alias, fn () => (default_node id [] node_amount state_machine snapshot_cond))
 
-    fun initiate_distributed_nodes aliases state_machine snapshot_cond verbose =
+    fun initiate_distributed_nodes aliases state_machine snapshot_cond =
         let val part_init = initiate_distributed_node state_machine snapshot_cond (length(aliases))
             fun spawn_nodes acc acc_id =
                 case acc of 
                 [] => []
                 | h :: t =>
-                    append (spawn_nodes t (acc_id ^ "I")) [part_init acc_id h verbose]
+                    append (spawn_nodes t (acc_id ^ "I")) [part_init acc_id h]
             val nodes = spawn_nodes aliases "I"
         in 
             add_refs nodes;
@@ -274,32 +267,16 @@ let
 
     (* Spawns a distributed Raft network, which can be dialed into to
     communicate with their state-machines *)
-    fun raft_spawn_alias (state_machine, aliases, snapshot_cond, verbose) = 
-        initiate_distributed_nodes aliases state_machine snapshot_cond verbose
+    fun raft_spawn_alias (state_machine, aliases, snapshot_cond) = 
+        initiate_distributed_nodes aliases state_machine snapshot_cond
     | raft_spawn_alias (state_machine, aliases) = 
         raft_spawn_alias (state_machine, aliases, 50, false)
 
     (* Spawns a Raft network, which can be contacted to
     communicate with their state-machines *)
-    fun raft_spawn (state_machine, n, snapshot_cond, verbose) =
-        initiate_nodes n state_machine snapshot_cond verbose
+    fun raft_spawn (state_machine, n, snapshot_cond) =
+        initiate_nodes n state_machine snapshot_cond
     | raft_spawn (state_machine) = raft_spawn (state_machine, 5, 50, false)
-
-    (*fun raft_d (state_machine, client_id, aliases, snapshot_cond, verbose) =
-        let val nodes = raft_spawn_alias (state_machine, aliases, snapshot_cond, verbose)
-        in (raft_dial (nodes, client_id), nodes)
-    end
-    | raft_d (state_machine, client_id, aliases) = 
-        raft_d (state_machine, client_id, aliases, 50, false)
-
-    fun raft (state_machine, client_id, n, snapshot_cond, verbose) =
-        let val nodes = raft_spawn (state_machine, n, snapshot_cond, verbose)
-        in (raft_dial (nodes, client_id), nodes)
-    end
-    | raft (state_machine, client_id) = 
-        raft (state_machine, client_id, 5, 50, false)
-
-    val default_aliases = ["@node1", "@node2", "@node3", "@node4", "@node5"]*)
 
 in
     [ ("raft_dial", raft_dial)

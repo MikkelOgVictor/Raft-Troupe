@@ -26,15 +26,12 @@ fun measure_time f =
         in loop n (fn x => x)
     end
 
-    fun measure_fib_raft m n stress_interval =
+    fun measure_fib_raft m n =
         let val pid = self ()
             val cluster = raft_spawn ([], WAIT, fib_input)
             val dialer = raft_dial (cluster, pid)
             val time_start =
-                sleep 5000; 
-                (if stress_interval > 0 then
-                spawn (fn () => bad_actor cluster m stress_interval true)
-                else ());
+                sleep 5000; (* This allows the cluster to elect a leader *)
                 getTime()
         in 
             send(dialer, (RAFT_UPDATE, ({type = CLIENT, id = dialer}, n)));

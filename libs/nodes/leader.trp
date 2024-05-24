@@ -40,9 +40,7 @@ fun leader_node node =
                 val leader_info = update_match_index node.leader_info p_id (get_log_index log)
                 val leader_info = update_next_index leader_info p_id ((get_log_index log) + 1)
                 val node = {node with log = log, leader_info = leader_info}
-            in 
-                verbose_print (node.id^": Appending new message to log") node.verbose;
-                node
+            in node
         end
 
         (* Applies all committed log entries that have not already been applied *)
@@ -77,9 +75,7 @@ fun leader_node node =
                     ]
                     in pause () end,
 
-                hn (SEND_HEARTBEAT, x) when nonce = x =>
-                    verbose_print (node.id^": Sending heartbeat") node.verbose;
-                    leader_node node,
+                hn (SEND_HEARTBEAT, x) when nonce = x => leader_node node,
 
                 hn (SEND_HEARTBEAT, x) =>
                     loop node,
@@ -132,7 +128,6 @@ fun leader_node node =
                 (* If another node has been elected as a candidate, and
                     their term is in front of ours, convert to a follower *)
                 hn (REQUEST_VOTE, (c_term, c_id, c_log_index, c_log_term)) when c_term > node.term =>
-                    verbose_print (node.id^": Voting yes") node.verbose;
                     send(c_id, (YES_VOTE, node.id));
                     follower (demote c_term () c_id node),
 
@@ -142,15 +137,11 @@ fun leader_node node =
 
                 (* If we receive snapshot from a leader in a higher term,
                 convert to follower *)
-                hn (SNAPSHOT, snapshot, l_id, other_term) when other_term > node.term =>
-                    verbose_print (node.id^": received Snapshot from leader, I must have lost position") node.verbose;
-                    follower (demote other_term l_id () node),
+                hn (SNAPSHOT, snapshot, l_id, other_term) when other_term > node.term => follower (demote other_term l_id () node),
                 
                 (* If we receive AppendEntries from a leader in a higher term,
                 convert to follower *)
-                hn (APPEND_ENTRIES, x, l_id, other_term, prevIndex, prevTerm, commitIndex) when other_term > node.term => 
-                    verbose_print (node.id^": received AppendEntries from leader, I must have lost position") node.verbose;
-                    follower (demote other_term l_id () node),
+                hn (APPEND_ENTRIES, x, l_id, other_term, prevIndex, prevTerm, commitIndex) when other_term > node.term => follower (demote other_term l_id () node),
                 
                 (* Prints log *)
                 hn DEBUG_PRINTLOG =>
@@ -164,9 +155,7 @@ fun leader_node node =
                         val node = case snapshot.snapshot of
                         () => node
                         | _ => {node with log = apply_snapshot snapshot node.log}
-                    in 
-                        verbose_print (node.id^": applying snapshot") node.verbose;
-                        loop node end,
+                    in loop node end,
                 hn _ => loop node
             ]
     in 
