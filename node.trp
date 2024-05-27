@@ -75,33 +75,45 @@ import lists
     }
 *)
 
-datatype Atoms = 
-                WAIT | SUS | DONE
-                | SEND_HEARTBEAT 
-                | RAFT_UPDATE 
-                | NOT_LEADER
-                | ACKNOWLEDGE
-                | REJECT
-                | ELECTION_TIMEOUT
-                | REQUEST_VOTE | YES_VOTE | NO_VOTE | VOTE_TIMEOUT
-                | APPEND_ENTRIES | SNAPSHOT
-                | ADD_NODES
-                | DIAL
-
-                | DIALER_ACK | DIALER_SM_BUSY | DIALER_SM_DONE | DIALER_CLIENT_MSG
-                | DIALER_MESSAGE_TIMEOUT | DIALER_BUSY_TIMEOUT 
-
-                | SEND_TO_NTH | SEND_TO_ALL
-
-                | DEBUG_PRINTLOG | DEBUG_PAUSE | DEBUG_CONTINUE | DEBUG_APPLYSNAPSHOT | DEBUG_SNAPSHOT_COND | DEBUG_TIMEOUT
-
-                | FUNCTION_DONE
-
-                | ERROR_TIMEOUT
-                | CLUSTER | CLIENT
 
 let 
     (* Constants *)
+        val WAIT = "WAIT"
+        val SUS = "SUS"
+        val DONE = "DONE"
+        val SEND_HEARTBEAT = "SEND_HEARTBEAT"
+        val RAFT_UPDATE = "RAFT_UPDATE"
+        val NOT_LEADER = "NOT_LEADER"
+        val ACKNOWLEDGE = "ACKNOWLEDGE"
+        val REJECT = "REJECT"
+        val ELECTION_TIMEOUT = "ELECTION_TIMEOUT"
+        val REQUEST_VOTE = "REQUEST_VOTE"
+        val YES_VOTE = "YES_VOTE"
+        val NO_VOTE = "NO_VOTE"
+        val VOTE_TIMEOUT = "VOTE_TIMEOUT"
+        val APPEND_ENTRIES = "APPEND_ENTRIES"
+        val SNAPSHOT = "SNAPSHOT"
+        val ADD_NODES = "ADD_NODES"
+        val DIAL = "DIAL"
+        val DIALER_ACK = "DIALER_ACK"
+        val DIALER_SM_BUSY = "DIALER_SM_BUSY"
+        val DIALER_SM_DONE = "DIALER_SM_DONE"
+        val DIALER_CLIENT_MSG = "DIALER_CLIENT_MSG"
+        val DIALER_MESSAGE_TIMEOUT = "DIALER_MESSAGE_TIMEOUT"
+        val DIALER_BUSY_TIMEOUT = "DIALER_BUSY_TIMEOUT"
+        val SEND_TO_NTH = "SEND_TO_NTH"
+        val SEND_TO_ALL = "SEND_TO_ALL"
+        val DEBUG_PRINTLOG = "DEBUG_PRINTLOG"
+        val DEBUG_PAUSE = "DEBUG_PAUSE"
+        val DEBUG_CONTINUE = "DEBUG_CONTINUE"
+        val DEBUG_APPLYSNAPSHOT = "DEBUG_APPLYSNAPSHOT"
+        val DEBUG_SNAPSHOT_COND = "DEBUG_SNAPSHOT_COND"
+        val DEBUG_TIMEOUT = "DEBUG_TIMEOUT"
+        val FUNCTION_DONE = "FUNCTION_DONE"
+        val ERROR_TIMEOUT = "ERROR_TIMEOUT"
+        val CLUSTER = "CLUSTER"
+        val CLIENT = "CLIENT"
+
     val LOCAL_ERROR_TIMEOUT = 4000
     val ELECTION_TIMEOUT_LOWER = 2000
     val ELECTION_TIMEOUT_UPPER = 4000
@@ -297,19 +309,11 @@ let
         in (raft_dial (nodes, client_id), nodes)
     end
     | raft (state_machine, client_id) = 
-        raft (state_machine, client_id, 5, 50, false)
+        raft (state_machine, client_id, 5, 50, false)*)
 
-    val default_aliases = ["@node1", "@node2", "@node3", "@node4", "@node5"]*)
+    val default_aliases = ["@node1", "@node2", "@node3", "@node4", "@node5"]
 
-in
-    [ ("raft_dial", raft_dial)
-    , ("raft_spawn_alias", raft_spawn_alias)
-    , ("raft_spawn", raft_spawn)
-    , ("WAIT", WAIT)
-    , ("SUS", SUS)
-    , ("DONE", DONE)
-    , ("RAFT_UPDATE", RAFT_UPDATE)
-    , ("CLIENT", CLIENT)
-    , ("CLUSTER", CLUSTER)
-    ]
+    (* #IMPORT ./libs/state_machines/fib.trp *)
+
+in raft_spawn_alias (fib_raft, default_aliases)
 end
