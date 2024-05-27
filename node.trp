@@ -77,41 +77,41 @@ import lists
 
 let 
     (* Constants *)
-        val WAIT = "WAIT"
-        val SUS = "SUS"
-        val DONE = "DONE"
-        val SEND_HEARTBEAT = "SEND_HEARTBEAT"
-        val RAFT_UPDATE = "RAFT_UPDATE"
-        val NOT_LEADER = "NOT_LEADER"
-        val ACKNOWLEDGE = "ACKNOWLEDGE"
-        val REJECT = "REJECT"
-        val ELECTION_TIMEOUT = "ELECTION_TIMEOUT"
-        val REQUEST_VOTE = "REQUEST_VOTE"
-        val YES_VOTE = "YES_VOTE"
-        val NO_VOTE = "NO_VOTE"
-        val VOTE_TIMEOUT = "VOTE_TIMEOUT"
-        val APPEND_ENTRIES = "APPEND_ENTRIES"
-        val SNAPSHOT = "SNAPSHOT"
-        val ADD_NODES = "ADD_NODES"
-        val DIAL = "DIAL"
-        val DIALER_ACK = "DIALER_ACK"
-        val DIALER_SM_BUSY = "DIALER_SM_BUSY"
-        val DIALER_SM_DONE = "DIALER_SM_DONE"
-        val DIALER_CLIENT_MSG = "DIALER_CLIENT_MSG"
-        val DIALER_MESSAGE_TIMEOUT = "DIALER_MESSAGE_TIMEOUT"
-        val DIALER_BUSY_TIMEOUT = "DIALER_BUSY_TIMEOUT"
-        val SEND_TO_NTH = "SEND_TO_NTH"
-        val SEND_TO_ALL = "SEND_TO_ALL"
-        val DEBUG_PRINTLOG = "DEBUG_PRINTLOG"
-        val DEBUG_PAUSE = "DEBUG_PAUSE"
-        val DEBUG_CONTINUE = "DEBUG_CONTINUE"
-        val DEBUG_APPLYSNAPSHOT = "DEBUG_APPLYSNAPSHOT"
-        val DEBUG_SNAPSHOT_COND = "DEBUG_SNAPSHOT_COND"
-        val DEBUG_TIMEOUT = "DEBUG_TIMEOUT"
-        val FUNCTION_DONE = "FUNCTION_DONE"
-        val ERROR_TIMEOUT = "ERROR_TIMEOUT"
-        val CLUSTER = "CLUSTER"
-        val CLIENT = "CLIENT"
+    val WAIT = "WAIT"
+    val SUS = "SUS"
+    val DONE = "DONE"
+    val SEND_HEARTBEAT = "SEND_HEARTBEAT"
+    val RAFT_UPDATE = "RAFT_UPDATE"
+    val NOT_LEADER = "NOT_LEADER"
+    val ACKNOWLEDGE = "ACKNOWLEDGE"
+    val REJECT = "REJECT"
+    val ELECTION_TIMEOUT = "ELECTION_TIMEOUT"
+    val REQUEST_VOTE = "REQUEST_VOTE"
+    val YES_VOTE = "YES_VOTE"
+    val NO_VOTE = "NO_VOTE"
+    val VOTE_TIMEOUT = "VOTE_TIMEOUT"
+    val APPEND_ENTRIES = "APPEND_ENTRIES"
+    val SNAPSHOT = "SNAPSHOT"
+    val ADD_NODES = "ADD_NODES"
+    val DIAL = "DIAL"
+    val DIALER_ACK = "DIALER_ACK"
+    val DIALER_SM_BUSY = "DIALER_SM_BUSY"
+    val DIALER_SM_DONE = "DIALER_SM_DONE"
+    val DIALER_CLIENT_MSG = "DIALER_CLIENT_MSG"
+    val DIALER_MESSAGE_TIMEOUT = "DIALER_MESSAGE_TIMEOUT"
+    val DIALER_BUSY_TIMEOUT = "DIALER_BUSY_TIMEOUT"
+    val SEND_TO_NTH = "SEND_TO_NTH"
+    val SEND_TO_ALL = "SEND_TO_ALL"
+    val DEBUG_PRINTLOG = "DEBUG_PRINTLOG"
+    val DEBUG_PAUSE = "DEBUG_PAUSE"
+    val DEBUG_CONTINUE = "DEBUG_CONTINUE"
+    val DEBUG_APPLYSNAPSHOT = "DEBUG_APPLYSNAPSHOT"
+    val DEBUG_SNAPSHOT_COND = "DEBUG_SNAPSHOT_COND"
+    val DEBUG_TIMEOUT = "DEBUG_TIMEOUT"
+    val FUNCTION_DONE = "FUNCTION_DONE"
+    val ERROR_TIMEOUT = "ERROR_TIMEOUT"
+    val CLUSTER = "CLUSTER"
+    val CLIENT = "CLIENT"
 
     val LOCAL_ERROR_TIMEOUT = 4000
     val ELECTION_TIMEOUT_LOWER = 2000
@@ -205,7 +205,7 @@ let
         if length(node.all_nodes) < node.node_amount then
             receive [
                 (* Adds a node to the cluster, only used for initialization *)
-                hn (ADD_NODES, x) => 
+                hn ("ADD_NODES", x) => 
                     dormant_node ({node with all_nodes = append node.all_nodes x})
             ]
         else follower node
@@ -285,9 +285,9 @@ let
 
     (* Spawns a Raft network, which can be contacted to
     communicate with their state-machines *)
-    fun raft_spawn (state_machine, n, snapshot_cond, verbose) =
-        initiate_nodes n state_machine snapshot_cond verbose
-    | raft_spawn (state_machine) = raft_spawn (state_machine, 5, 50, false)
+    fun raft_spawn (state_machine, n, snapshot_cond) =
+        initiate_nodes n state_machine snapshot_cond
+    | raft_spawn (state_machine, n) = raft_spawn (state_machine, n, 50)
 
     (*fun raft_d (state_machine, client_id, aliases, snapshot_cond, verbose) =
         let val nodes = raft_spawn_alias (state_machine, aliases, snapshot_cond, verbose)
@@ -307,5 +307,8 @@ let
 
     (* #IMPORT ./libs/state_machines/fib.trp *)
 
-in raft_spawn_alias (fib_raft, default_aliases)
+    val pid = self()
+    val cluster = raft_spawn_alias (([], WAIT, fib_input), default_aliases)
+    val dialer = raft_dial(cluster, pid)
+in ()
 end

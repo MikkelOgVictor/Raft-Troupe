@@ -58,7 +58,7 @@ fun leader_node node =
                 val node = { node with log = snapshot_log, state_machine = new_sm}
             in 
                 case status of
-                SUS => if log_is_committed node.log then append_update node () (fn () => ()) (mkuuid())
+                "SUS" => if log_is_committed node.log then append_update node () (fn () => ()) (mkuuid())
                     else node
                 | _ => node
         end
@@ -68,27 +68,28 @@ fun leader_node node =
         fun loop node =
             receive [
                 (* Halts the leader *)
-                hn DEBUG_PAUSE =>
+                hn "DEBUG_PAUSE" =>
                     let fun pause () = receive [
-                        hn (DEBUG_CONTINUE) => loop node,
+                        hn ("DEBUG_CONTINUE") => loop node,
                         hn x => pause ()
                     ]
                     in pause () end,
 
-                hn (SEND_HEARTBEAT, x) when nonce = x => leader_node node,
+                hn ("SEND_HEARTBEAT", x) when nonce = x => leader_node node,
 
-                hn (SEND_HEARTBEAT, x) =>
+                hn ("SEND_HEARTBEAT", x) =>
+                    print "Sending heartbeat";
                     loop node,
 
                 (* Message has not been appended before *)
-                hn ((RAFT_UPDATE, x), dialer_id, serial_n) => 
+                hn (("RAFT_UPDATE", x), dialer_id, serial_n) => 
                     let val (cond, sks) = apply_serialkey node.serialkeys serial_n
                     in if cond then let
                         val (_, stat, _) = node.state_machine
                         val node = case stat of 
-                            SUS => send(dialer_id, (DIALER_SM_BUSY, serial_n)); node
-                            | DONE => send(dialer_id, (DIALER_SM_DONE, serial_n)); node
-                            | WAIT => 
+                            "SUS" => send(dialer_id, (DIALER_SM_BUSY, serial_n)); node
+                            | "DONE" => send(dialer_id, (DIALER_SM_DONE, serial_n)); node
+                            | "WAIT" => 
                                 if log_is_committed node.log then
                                     let fun replication_cb () = send (dialer_id, (DIALER_ACK, serial_n))
                                     in append_update node x replication_cb serial_n end
@@ -99,7 +100,7 @@ fun leader_node node =
                     end,
 
                 (* If append is successful on a follower*)
-                hn (ACKNOWLEDGE, (peer, logIndex)) => 
+                hn ("ACKNOWLEDGE", (peer, logIndex)) => 
                     let val prev_index = get_log_index node.log
                         val node = { node with leader_info = update_match_index node.leader_info peer logIndex }
                         val node = { node with leader_info = update_next_index node.leader_info peer (logIndex + 1) }
@@ -117,7 +118,7 @@ fun leader_node node =
                     end,
 
                 (* If append is unsuccessful *)
-                hn (REJECT, (peer, terminfo, logIndex)) => 
+                hn ("REJECT", (peer, terminfo, logIndex)) => 
                     if node.term >= terminfo.term then 
                         let val node = { node with leader_info = update_next_index node.leader_info peer (logIndex + 1) } 
                         in loop node 
@@ -127,29 +128,29 @@ fun leader_node node =
 
                 (* If another node has been elected as a candidate, and
                     their term is in front of ours, convert to a follower *)
-                hn (REQUEST_VOTE, (c_term, c_id, c_log_index, c_log_term)) when c_term > node.term =>
+                hn ("REQUEST_VOTE", (c_term, c_id, c_log_index, c_log_term)) when c_term > node.term =>
                     send(c_id, (YES_VOTE, node.id));
                     follower (demote c_term () c_id node),
 
-                hn (REQUEST_VOTE, (c_term, c_id, c_log_index, c_log_term)) =>
+                hn ("REQUEST_VOTE", (c_term, c_id, c_log_index, c_log_term)) =>
                     send(c_id, (NO_VOTE, node.id));
                     loop node,
 
                 (* If we receive snapshot from a leader in a higher term,
                 convert to follower *)
-                hn (SNAPSHOT, snapshot, l_id, other_term) when other_term > node.term => follower (demote other_term l_id () node),
+                hn ("SNAPSHOT", snapshot, l_id, other_term) when other_term > node.term => follower (demote other_term l_id () node),
                 
                 (* If we receive AppendEntries from a leader in a higher term,
                 convert to follower *)
-                hn (APPEND_ENTRIES, x, l_id, other_term, prevIndex, prevTerm, commitIndex) when other_term > node.term => follower (demote other_term l_id () node),
+                hn ("APPEND_ENTRIES", x, l_id, other_term, prevIndex, prevTerm, commitIndex) when other_term > node.term => follower (demote other_term l_id () node),
                 
                 (* Prints log *)
-                hn DEBUG_PRINTLOG =>
+                hn "DEBUG_PRINTLOG" =>
                     pretty_print_log node.id node.log;
                     loop node,
 
                 (* Applies a snapshot *)
-                hn DEBUG_APPLYSNAPSHOT =>
+                hn "DEBUG_APPLYSNAPSHOT" =>
                     let 
                         val snapshot = get_snapshot node.state_machine node.log
                         val node = case snapshot.snapshot of

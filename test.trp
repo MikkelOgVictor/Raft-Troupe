@@ -1,7 +1,0 @@
-let fun some_sm cluster callback =
-        ([(callback, cluster)], WAIT, some_sm cluster)
-    val cluster = raft_spawn ()
-    val pid = self ()
-    val dialer = raft_dial (cluster, pid)
-in send(dialer, (RAFT_UPDATE, some_sm cluster))
-end

@@ -28,33 +28,33 @@ and candidate node =
                 fun loop () = receive [
                 (* Received a vote from a follower we have not already
                 received a vote from *)
-                hn (YES_VOTE, follower_id) when (not (contains follower_id follower_votes)) => 
+                hn ("YES_VOTE", follower_id) when (not (contains follower_id follower_votes)) => 
                     wait_for_votes ((append follower_votes [follower_id]), vote_amount + 1),
 
                 (*We received a NO_VOTE from a follower in a later term.
                 This can only happen if there is a leader/candidate in this
                 term, and as such, we convert to a follower *)
-                hn (NO_VOTE, other_term) when other_term > node.term =>
+                hn ("NO_VOTE", other_term) when other_term > node.term =>
                     follower node,
 
                 (* Received vote request from candidate in later term *)
-                hn (REQUEST_VOTE, (c_term, other_c_id, c_log_index, c_log_term)) when c_term > node.term =>
+                hn ("REQUEST_VOTE", (c_term, other_c_id, c_log_index, c_log_term)) when c_term > node.term =>
                     send(other_c_id, (YES_VOTE, node.id));
                     follower ({ node with term = c_term, voted_for = other_c_id}),
                 
                 (* Received message from leader in a term at least as
                 up-to-date as ours. Because of this, we must have lost the
                 election *)
-                hn (APPEND_ENTRIES, x, l_id, other_term, prevIndex, prevTerm, commitIndex) when other_term >= node.term => 
+                hn ("APPEND_ENTRIES", x, l_id, other_term, prevIndex, prevTerm, commitIndex) when other_term >= node.term => 
                     follower ({ node with leader = l_id}),
 
                 (* Election timeout, send out another request vote *)
-                hn (VOTE_TIMEOUT, x) when x = nonce => candidate {node with term = node.term + 1},
+                hn ("VOTE_TIMEOUT", x) when x = nonce => candidate {node with term = node.term + 1},
 
                 (* Halts the candidate *)
-                hn (DEBUG_PAUSE) =>
+                hn ("DEBUG_PAUSE") =>
                     let fun loop () = receive [
-                        hn (DEBUG_CONTINUE) => (),
+                        hn ("DEBUG_CONTINUE") => (),
                         hn x => loop ()
                     ]
                     in loop () end,

@@ -44,19 +44,19 @@ fun dialer_send_message p_id msg serial_n leader cluster =
         val busy_timeout = start_timeout (fn() => send(p_id, (DIALER_BUSY_TIMEOUT, nonce)))
         fun wait () =
             receive [
-            hn (NOT_LEADER, leader_id) => 
+            hn ("NOT_LEADER", leader_id) => 
                 dialer_send_message p_id msg serial_n leader_id cluster,
-            hn (DIALER_ACK, other_serial) when other_serial = serial_n => 
+            hn ("DIALER_ACK", other_serial) when other_serial = serial_n => 
                 leader,
-            hn (DIALER_SM_BUSY, other_serial) when other_serial = serial_n =>
+            hn ("DIALER_SM_BUSY", other_serial) when other_serial = serial_n =>
                 busy_timeout DIALER_SM_BUSY_TIMEOUT;
                 wait (),
-            hn (DIALER_SM_DONE, other_serial) when other_serial = serial_n =>
+            hn ("DIALER_SM_DONE", other_serial) when other_serial = serial_n =>
                 leader,
-            hn (DIALER_MESSAGE_TIMEOUT, x) => 
+            hn ("DIALER_MESSAGE_TIMEOUT", x) => 
                 if x = nonce then dialer_send_message p_id msg serial_n (random_element cluster) cluster
                 else wait (),
-            hn (DIALER_BUSY_TIMEOUT, x) => 
+            hn ("DIALER_BUSY_TIMEOUT", x) => 
                 if x = nonce then dialer_send_message p_id msg serial_n leader cluster
                 else wait ()
         ]
@@ -80,10 +80,10 @@ fun dialer cluster client_id =
 
         fun loop leader sks =     
             receive [
-                hn (RAFT_UPDATE, x) =>
+                hn ("RAFT_UPDATE", x) =>
                     loop (update_message x leader) sks,
 
-                hn (DIALER_CLIENT_MSG, msg, sk) =>
+                hn ("DIALER_CLIENT_MSG", msg, sk) =>
                     let val (cond, sks) = apply_serialkey sks sk
                     in 
                         (if cond then send(client_id, msg)
@@ -91,11 +91,11 @@ fun dialer cluster client_id =
                         loop leader sks
                 end,
 
-                hn (SEND_TO_NTH, n, x) =>
+                hn ("SEND_TO_NTH", n, x) =>
                     send_to_nth cluster x n;
                     loop leader sks,
 
-                hn (SEND_TO_ALL, x) => 
+                hn ("SEND_TO_ALL", x) => 
                     send_to_all cluster x (self());
                     loop leader sks,
                 hn _ => loop leader sks ]
@@ -113,6 +113,6 @@ end
 (* Send-function used for clusters to send a message to either the dialer or
 client. *)
 fun raft_send (process, msgs) = case process.type of
-CLIENT => map (fn (msg, sk) => send(process.id, (DIALER_CLIENT_MSG, msg, sk))) msgs
-| CLUSTER => spawn (fn () => leader_dialer process.id msgs)
+"CLIENT" => map (fn (msg, sk) => send(process.id, (DIALER_CLIENT_MSG, msg, sk))) msgs
+| "CLUSTER" => spawn (fn () => leader_dialer process.id msgs)
 (* EXPORT END *)
