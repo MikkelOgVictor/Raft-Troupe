@@ -316,5 +316,5 @@ let
 in 
     sleep 5000;
     print "begin";
-    print (measure_fib dialer 5)
+    print (measure_fib dialer 15)
 end

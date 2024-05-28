@@ -79,9 +79,6 @@ fun leader_node node =
                     print "Sending heartbeat";
                     leader_node node,
 
-                hn ("SEND_HEARTBEAT", x) =>
-                    loop node,
-
                 (* Message has not been appended before *)
                 hn (("RAFT_UPDATE", x), dialer_id, serial_n) => 
                     let val (cond, sks) = apply_serialkey node.serialkeys serial_n
