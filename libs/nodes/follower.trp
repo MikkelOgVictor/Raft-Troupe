@@ -9,6 +9,7 @@ and follower node =
             { node with term = c_term, voted_for = c_id } 
         fun loop node start_time = let
             fun start_election () =
+                verbose_print (node.id^": START ELECTION") node.verbose;
                 candidate ({node with term = node.term + 1})
             val _ = receive [
                 (* Starts an election *)
@@ -17,7 +18,8 @@ and follower node =
                     else start_random_timeout (fn () => send(p_id, (ELECTION_TIMEOUT, nonce))); loop node (getTime()),
 
                 (* Sends a re-vote to a candidate we already voted for *)
-                hn ("REQUEST_VOTE", (c_term, c_id, c_log_index, c_log_term)) when c_id = node.voted_for =>
+                hn (REQUEST_VOTE, (c_term, c_id, c_log_index, c_log_term)) when c_id = node.voted_for =>
+                    verbose_print (node.id^": Voting yes") node.verbose;
                     follower (vote_for c_id c_term node),
                 
                 (* If we receive a vote request, vote yes if: the log is a
@@ -28,8 +30,10 @@ and follower node =
                         val latestLogTerm = get_latest_log_term node.log
                         fun no_vote () =
                             send(c_id, NO_VOTE);
+                            verbose_print (node.id^":voting no") node.verbose;
                             follower node
                         fun yes_vote () =
+                            verbose_print (node.id^": Voting yes") node.verbose;
                             follower (vote_for c_id c_term ({node with term = c_term}))
                     in 
                         if latestLogIndex > c_log_index
@@ -67,8 +71,8 @@ and follower node =
                             state_machine = new_sm, 
                             log = newlog}
                         
-                    in (if accepting then ack ()
-                                else reject ());
+                    in (if accepting then verbose_print (node.id^": ACCEPTING SNAPSHOT") node.verbose; ack ()
+                                else verbose_print (node.id^": REJECTING SNAPSHOT") node.verbose; reject ());
                         loop node (getTime())
                     end,
 
@@ -81,9 +85,13 @@ and follower node =
                             if node.leader = () orelse node.term <= leader_term then l_id
                             else node.leader}
                         val accepting = 
-                            if leader_term < node.term then false
-                            else if latestLogIndex > (get_log_index node.log) then false
-                            else if (get_latest_log_term node.log) <> prevLogTerm andalso prevLogTerm > 0 then false
+                            if leader_term < node.term then verbose_print "Old Leader" node.verbose; false
+                            else if latestLogIndex > (get_log_index node.log) then 
+                                verbose_print "Leader is way ahead of me" node.verbose;
+                                false
+                            else if (get_latest_log_term node.log) <> prevLogTerm andalso prevLogTerm > 0 then 
+                                verbose_print "Leader has inconsistent log with me" node.verbose;
+                                false
                             else true
                         val prev_commit = node.log.commitIndex
                         val newlog = 
@@ -106,8 +114,12 @@ and follower node =
                             else 
                                 applied_log
                     in 
-                        (if accepting then ack ()
-                        else reject ());
+                        (if accepting then 
+                            verbose_print (node.id^": ACCEPTING") node.verbose; 
+                            ack ()
+                        else 
+                            verbose_print (node.id^": REJECTING") node.verbose;
+                            reject ());
                         loop {node with log = snapshot_log, state_machine = new_sm} (getTime())
                     end,
 
