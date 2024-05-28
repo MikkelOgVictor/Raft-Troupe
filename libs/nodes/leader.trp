@@ -131,12 +131,8 @@ fun leader_node node =
 
                 (* If another node has been elected as a candidate, and
                     their term is in front of ours, convert to a follower *)
-<<<<<<< HEAD
-                hn ("REQUEST_VOTE", (c_term, c_id, c_log_index, c_log_term)) when c_term > node.term =>
-=======
                 hn (REQUEST_VOTE, (c_term, c_id, c_log_index, c_log_term)) when c_term > node.term =>
                     verbose_print (node.id^": Voting yes") node.verbose;
->>>>>>> parent of ed8ede1 (Removed verbose, as it goes unused in Troupe libraries)
                     send(c_id, (YES_VOTE, node.id));
                     follower (demote c_term () c_id node),
 
@@ -146,13 +142,6 @@ fun leader_node node =
 
                 (* If we receive snapshot from a leader in a higher term,
                 convert to follower *)
-<<<<<<< HEAD
-                hn ("SNAPSHOT", snapshot, l_id, other_term) when other_term > node.term => follower (demote other_term l_id () node),
-                
-                (* If we receive AppendEntries from a leader in a higher term,
-                convert to follower *)
-                hn ("APPEND_ENTRIES", x, l_id, other_term, prevIndex, prevTerm, commitIndex) when other_term > node.term => follower (demote other_term l_id () node),
-=======
                 hn (SNAPSHOT, snapshot, l_id, other_term) when other_term > node.term =>
                     verbose_print (node.id^": received Snapshot from leader, I must have lost position") node.verbose;
                     follower (demote other_term l_id () node),
@@ -162,7 +151,6 @@ fun leader_node node =
                 hn (APPEND_ENTRIES, x, l_id, other_term, prevIndex, prevTerm, commitIndex) when other_term > node.term => 
                     verbose_print (node.id^": received AppendEntries from leader, I must have lost position") node.verbose;
                     follower (demote other_term l_id () node),
->>>>>>> parent of ed8ede1 (Removed verbose, as it goes unused in Troupe libraries)
                 
                 (* Prints log *)
                 hn "DEBUG_PRINTLOG" =>
