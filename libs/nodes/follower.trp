@@ -1,6 +1,6 @@
 (* EXPORT START *)
 and follower node = 
-    let val nonce = print "here"; mkuuid()
+    let val nonce = mkuuid()
         val p_id = self()
         val _ = start_random_timeout (fn () => send(p_id, (ELECTION_TIMEOUT, nonce)))
         (* Sends a YES_VOTE to a candidate *)

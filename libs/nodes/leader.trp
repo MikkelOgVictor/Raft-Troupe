@@ -58,7 +58,7 @@ fun leader_node node =
                 val node = { node with log = snapshot_log, state_machine = new_sm}
             in 
                 case status of
-                "SUS" => if log_is_committed node.log then append_update node () (fn () => ()) (mkuuid())
+                "SUS" => if log_is_committed node.log then print "adding sus"; append_update node () (fn () => ()) (mkuuid())
                     else node
                 | _ => node
         end
@@ -75,10 +75,11 @@ fun leader_node node =
                     ]
                     in pause () end,
 
-                hn ("SEND_HEARTBEAT", x) when nonce = x => leader_node node,
+                hn ("SEND_HEARTBEAT", x) when nonce = x => 
+                    print "Sending heartbeat";
+                    leader_node node,
 
                 hn ("SEND_HEARTBEAT", x) =>
-                    print "Sending heartbeat";
                     loop node,
 
                 (* Message has not been appended before *)

@@ -171,6 +171,7 @@ let
             val (sorted_msgs, _) = case sides of
             [] => ([], 0)
             | x => foldl (fn ((callback, msg), (acc, seq)) =>
+                print msg;
                 (add_msg callback msg ({ id = callback, key = (log.lastApplied, seq)}) acc, seq + 1)
             ) ([], 1) x
         (* Sends all messages. *)
@@ -303,12 +304,17 @@ let
     | raft (state_machine, client_id) = 
         raft (state_machine, client_id, 5, 50, false)*)
 
-    val default_aliases = ["@node1", "@node2", "@node3", "@node4", "@node5"]
+    val default_aliases = ["@node1", "@node2", "@node3"]
 
     (* #IMPORT ./libs/state_machines/fib.trp *)
+    (* #IMPORT ./tests/evaluation/fib_eval.trp *)
 
     val pid = self()
     val cluster = raft_spawn_alias (([], WAIT, fib_input), default_aliases)
-    val dialer = raft_dial(cluster, pid)
-in ()
+    val dialer = raft_dial(cluster, pid) 
+
+in 
+    sleep 5000;
+    print "begin";
+    print (measure_fib dialer 5)
 end

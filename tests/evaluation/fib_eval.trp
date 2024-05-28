@@ -26,17 +26,22 @@ fun measure_time f =
         in loop n (fn x => x)
     end
 
-    fun measure_fib_raft m n =
-        let val pid = self ()
-            val cluster = raft_spawn ([], WAIT, fib_input)
-            val dialer = raft_dial (cluster, pid)
-            val time_start =
-                sleep 5000; (* This allows the cluster to elect a leader *)
-                getTime()
+    fun measure_fib dialer n =
+        let val time_start = getTime()
         in 
             send(dialer, (RAFT_UPDATE, ({type = CLIENT, id = dialer}, n)));
             receive [ hn _ => () ];
             getTime () - time_start
+    end
+    
+    fun measure_fib_raft aliases n =
+        let val pid = self ()
+            val cluster = raft_spawn_alias (([], WAIT, fib_input), aliases)
+            val dialer = raft_dial (cluster, pid)
+        in 
+            sleep 5000; (* This allows the cluster to elect a leader *)
+            print "beginning measurements";
+            measure_fib dialer n
     end
 
     fun measure_runtimes n =
