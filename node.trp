@@ -282,13 +282,13 @@ let
     fun raft_spawn_alias (state_machine, aliases, snapshot_cond) = 
         initiate_distributed_nodes aliases state_machine snapshot_cond
     | raft_spawn_alias (state_machine, aliases) = 
-        raft_spawn_alias (state_machine, aliases, 50)
+        raft_spawn_alias (state_machine, aliases, 50, false)
 
     (* Spawns a Raft network, which can be contacted to
     communicate with their state-machines *)
     fun raft_spawn (state_machine, n, snapshot_cond) =
         initiate_nodes n state_machine snapshot_cond
-    | raft_spawn (state_machine, n) = raft_spawn (state_machine, n, 50)
+    | raft_spawn (state_machine) = raft_spawn (state_machine, 5, 50, false)
 
     (*fun raft_d (state_machine, client_id, aliases, snapshot_cond, verbose) =
         let val nodes = raft_spawn_alias (state_machine, aliases, snapshot_cond, verbose)
