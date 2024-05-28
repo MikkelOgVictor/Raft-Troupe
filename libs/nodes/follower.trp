@@ -2,23 +2,21 @@
 and follower node = 
     let val nonce = mkuuid()
         val p_id = self()
-        val _ = start_random_timeout (fn () => send(p_id, (ELECTION_TIMEOUT, nonce)))
+        val _ = start_random_timeout (fn () => send(p_id, (ELECTION_TIMEOUT, nonce))) node.settings
         (* Sends a YES_VOTE to a candidate *)
         fun vote_for c_id c_term node = 
             send(c_id, (YES_VOTE, node.id));
             { node with term = c_term, voted_for = c_id } 
-        fun loop node start_time = let
+        fun loop node = let
             fun start_election () =
                 verbose_print (node.id^": START ELECTION") node.verbose;
                 candidate ({node with term = node.term + 1})
             val _ = receive [
                 (* Starts an election *)
-                hn ("ELECTION_TIMEOUT", x) when x = nonce =>
-                    if (getTime() - start_time >= ELECTION_TIMEOUT_LOWER) then start_election ()
-                    else start_random_timeout (fn () => send(p_id, (ELECTION_TIMEOUT, nonce))); loop node (getTime()),
+                hn ("ELECTION_TIMEOUT", x) when x = nonce => start_election (),
 
                 (* Sends a re-vote to a candidate we already voted for *)
-                hn (REQUEST_VOTE, (c_term, c_id, c_log_index, c_log_term)) when c_id = node.voted_for =>
+                hn ("REQUEST_VOTE", (c_term, c_id, c_log_index, c_log_term)) when c_id = node.voted_for =>
                     verbose_print (node.id^": Voting yes") node.verbose;
                     follower (vote_for c_id c_term node),
                 
@@ -28,17 +26,19 @@ and follower node =
                 hn ("REQUEST_VOTE", (c_term, c_id, c_log_index, c_log_term)) =>
                     let val latestLogIndex = get_log_index node.log
                         val latestLogTerm = get_latest_log_term node.log
+                        val old_term = node.term
+                        val node = {node with term = max c_term old_term}
                         fun no_vote () =
                             send(c_id, NO_VOTE);
                             verbose_print (node.id^":voting no") node.verbose;
                             follower node
                         fun yes_vote () =
                             verbose_print (node.id^": Voting yes") node.verbose;
-                            follower (vote_for c_id c_term ({node with term = c_term}))
+                            follower (vote_for c_id c_term node)
                     in 
                         if latestLogIndex > c_log_index
                         orelse latestLogTerm <> c_log_term
-                        orelse c_term <= node.term then no_vote ()
+                        orelse node.term = old_term then no_vote ()
                         else yes_vote ()
                     end,
 
@@ -73,7 +73,7 @@ and follower node =
                         
                     in (if accepting then verbose_print (node.id^": ACCEPTING SNAPSHOT") node.verbose; ack ()
                                 else verbose_print (node.id^": REJECTING SNAPSHOT") node.verbose; reject ());
-                        loop node (getTime())
+                        follower node
                     end,
 
                 (* When receiving entries from a leader in a later or
@@ -107,7 +107,7 @@ and follower node =
                             fn () => send (l_id, (ACKNOWLEDGE, (p_id, get_log_index newlog)))
 
                         val node = {node with term = (if node.term < leader_term then leader_term else node.term)}
-                        val (applied_log, new_sm) = apply_log newlog node.state_machine false
+                        val (applied_log, new_sm) = apply_log newlog node.state_machine false node.settings.leader_dialer_settings
                         val snapshot_log =
                             if prev_commit < applied_log.commitIndex then 
                                 evaluate_snapshot_cond new_sm node.snapshot_cond applied_log
@@ -120,18 +120,18 @@ and follower node =
                         else 
                             verbose_print (node.id^": REJECTING") node.verbose;
                             reject ());
-                        loop {node with log = snapshot_log, state_machine = new_sm} (getTime())
+                        follower {node with log = snapshot_log, state_machine = new_sm}
                     end,
 
                 (* If client sends update, sends the leader's id *)
                 hn (("RAFT_UPDATE", x), dialer_id, _) => 
                     send(dialer_id, (NOT_LEADER, node.leader));
-                    loop node start_time,
+                    loop node,
 
                 (* Prints the log *)
                 hn ("DEBUG_PRINTLOG") =>
                     pretty_print_log node.id node.log;
-                    loop node start_time,
+                    loop node,
 
                 (* Halts the follower *)
                 hn ("DEBUG_PAUSE") =>
@@ -141,15 +141,15 @@ and follower node =
                     ]
                     in
                         paused ();
-                        loop node start_time
+                        loop node
                     end,
 
                 (* Start an election, electing this follower to a candidate *)
                 hn ("DEBUG_TIMEOUT") => start_election (),
-                hn x => loop node start_time
+                hn _ => loop node
         ]
         in ()
     end
-    in loop node (getTime ())
+    in loop node
 end
 (* EXPORT END *)

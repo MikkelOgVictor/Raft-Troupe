@@ -38,43 +38,43 @@ fun apply_serialkey list key =
 no leader is present, this function re-sends the message until it is eventually
 delivered and acknowledged by the leader of the cluster. If leader is unknown,
 it can be defined as unit.*)
-fun dialer_send_message p_id msg serial_n leader cluster = 
+fun dialer_send_message p_id msg serial_n leader cluster dialer_settings = 
     let val nonce = mkuuid()
         val msg_timeout = start_timeout (fn() => send(p_id, (DIALER_MESSAGE_TIMEOUT, nonce)))
         val busy_timeout = start_timeout (fn() => send(p_id, (DIALER_BUSY_TIMEOUT, nonce)))
         fun wait () =
             receive [
             hn ("NOT_LEADER", leader_id) => 
-                dialer_send_message p_id msg serial_n leader_id cluster,
+                dialer_send_message p_id msg serial_n leader_id cluster dialer_settings,
             hn ("DIALER_ACK", other_serial) when other_serial = serial_n => 
                 leader,
             hn ("DIALER_SM_BUSY", other_serial) when other_serial = serial_n =>
-                busy_timeout DIALER_SM_BUSY_TIMEOUT;
+                busy_timeout dialer_settings.DIALER_SM_BUSY_TIMEOUT;
                 wait (),
             hn ("DIALER_SM_DONE", other_serial) when other_serial = serial_n =>
                 leader,
             hn ("DIALER_MESSAGE_TIMEOUT", x) => 
-                if x = nonce then dialer_send_message p_id msg serial_n (random_element cluster) cluster
+                if x = nonce then dialer_send_message p_id msg serial_n (random_element cluster) cluster dialer_settings
                 else wait (),
             hn ("DIALER_BUSY_TIMEOUT", x) => 
-                if x = nonce then dialer_send_message p_id msg serial_n leader cluster
+                if x = nonce then dialer_send_message p_id msg serial_n leader cluster dialer_settings
                 else wait ()
         ]
         in (case leader of
-            () => msg_timeout DIALER_NOLEADER_TIMEOUT
+            () => msg_timeout dialer_settings.DIALER_NOLEADER_TIMEOUT
             | x =>
-                msg_timeout DIALER_NOMSG_TIMEOUT; 
+                msg_timeout dialer_settings.DIALER_NOMSG_TIMEOUT; 
                 send(x, msg));
             wait ()
 end
 
 (* Facilitates client-side interaction to the Raft cluster. Allows the
 programmer to send messages to the cluster in the format (RAFT_UPDATE, msg)*)
-fun dialer cluster client_id = 
+fun dialer cluster client_id dialer_settings = 
     let val p_id = self()
         fun update_message x leader = let 
             val serial_n = mkuuid()
-            in dialer_send_message p_id ((RAFT_UPDATE, x), p_id, serial_n) serial_n leader cluster
+            in dialer_send_message p_id ((RAFT_UPDATE, x), p_id, serial_n) serial_n leader cluster dialer_settings
         end
         val leader = random_element cluster
 
@@ -103,16 +103,16 @@ fun dialer cluster client_id =
 end
 
 (* Temporary dialer sends a list of messages to a cluster before terminating. *)
-fun leader_dialer cluster msgs = 
+fun leader_dialer cluster msgs dialer_settings = 
     let val p_id = self()
         val leader = random_element cluster
     in 
-        map (fn (msg, serial) => dialer_send_message p_id ((RAFT_UPDATE, msg), p_id, serial) serial leader cluster) msgs
+        map (fn (msg, serial) => dialer_send_message p_id ((RAFT_UPDATE, msg), p_id, serial) serial leader cluster dialer_settings) msgs
 end
 
 (* Send-function used for clusters to send a message to either the dialer or
 client. *)
-fun raft_send (process, msgs) = case process.type of
+fun raft_send (process, msgs) dialer_settings = case process.type of
 "CLIENT" => map (fn (msg, sk) => send(process.id, (DIALER_CLIENT_MSG, msg, sk))) msgs
-| "CLUSTER" => spawn (fn () => leader_dialer process.id msgs)
+| "CLUSTER" => spawn (fn () => leader_dialer process.id msgs dialer_settings)
 (* EXPORT END *)

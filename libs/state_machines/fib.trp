@@ -1,22 +1,21 @@
 datatype Atoms = WAIT|SUS|DONE
 
 (* EXPORT START *)
-    
+
 (* Calculates the nth Fibonacci number*)
-fun fib_raft cb n =
-    (* O(2^n) recursive solution*)
-    let fun loop n f =
-        if n <= 1 then 
-            (* Pass n to function*)
-            f n
-        (* Add suspended states to ensure computation when doing recursion*)
-        else ([], SUS, fn () =>
-            loop (n - 1) (fn x => ([], SUS, fn () =>
-                loop (n - 2) (fn y => 
-                    (* Return sum of x and y to function *)
-                    f (x + y)))))
+fun fib_raft cb n  =
+    (* O(n) recursive solution*)
+    let fun loop cb n a b = case n of
     (* Send result of recursive loop to cb *)
-    in loop n (fn x => ([(cb, x)], WAIT, fib_input))
+    1 => ([(cb, b)], WAIT, fib_input)
+    (* Add suspended states to ensure computation when doing recursion*)
+    | n => 
+        ([], SUS, fn () => 
+            let val n = n - 1
+            in ([], SUS, fn () => loop cb n b (a + b)) end)
+
+    in if n <= 1 then ([(cb, n)], WAIT, fib_input)
+        else loop cb n 0 1
 end
 
 and fib_input x = case x of 

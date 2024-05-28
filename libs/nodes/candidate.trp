@@ -46,7 +46,7 @@ and candidate node =
                 (* Received message from leader in a term at least as
                 up-to-date as ours. Because of this, we must have lost the
                 election *)
-                hn (APPEND_ENTRIES, x, l_id, other_term, prevIndex, prevTerm, commitIndex) when other_term >= node.term => 
+                hn ("APPEND_ENTRIES", x, l_id, other_term, prevIndex, prevTerm, commitIndex) when other_term >= node.term => 
                     verbose_print (node.id^": received AppendEntries from leader, I must have lost position") node.verbose;
                     follower ({ node with leader = l_id}),
 
@@ -67,7 +67,7 @@ and candidate node =
     in 
         verbose_print (node.id^": I am now a candidate") node.verbose;
         send_to_all node.all_nodes (REQUEST_VOTE, (node.term, p_id, latestLogIndex, prevLogTerm)) (p_id);
-        start_random_timeout (fn () => send(p_id, (VOTE_TIMEOUT, nonce)));
+        start_random_timeout (fn () => send(p_id, (VOTE_TIMEOUT, nonce))) node.settings;
         wait_for_votes ([node.id], 1) 
 end
 (* EXPORT END *)

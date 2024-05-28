@@ -22,6 +22,18 @@ zero.listener4:
 	$(START) zero.trp --id=ids/node4.json  --rspawn=true --aliases=aliases.json --stdiolev={} #
 zero.listener5:
 	$(START) zero.trp --id=ids/node5.json  --rspawn=true --aliases=aliases.json --stdiolev={} #
+zero.listener6:
+	$(START) zero.trp --id=ids/node6.json  --rspawn=true --aliases=aliases.json --stdiolev={} #
+zero.listener7:
+	$(START) zero.trp --id=ids/node7.json  --rspawn=true --aliases=aliases.json --stdiolev={} #
+zero.listener8:
+	$(START) zero.trp --id=ids/node8.json  --rspawn=true --aliases=aliases.json --stdiolev={} #
+zero.listener9:
+	$(START) zero.trp --id=ids/node9.json  --rspawn=true --aliases=aliases.json --stdiolev={} #
+zero.listener10:
+	$(START) zero.trp --id=ids/node10.json  --rspawn=true --aliases=aliases.json --stdiolev={} #
+zero.listener11:
+	$(START) zero.trp --id=ids/node11.json  --rspawn=true --aliases=aliases.json --stdiolev={} #
 
 raft.dialer: build/node_dest.trp
 	$(START) ./build/node_dest.trp --id=ids/raft-dialer.json --aliases=aliases.json
@@ -38,4 +50,10 @@ create-network-identifiers:
 	$(MKID) --outfile=ids/node3.json
 	$(MKID) --outfile=ids/node4.json
 	$(MKID) --outfile=ids/node5.json
-	$(MKALIASES) --include ids/raft-dialer.json --include ids/node1.json --include ids/node2.json --include ids/node3.json --include ids/node4.json --include ids/node5.json --outfile aliases.json
+	$(MKID) --outfile=ids/node6.json
+	$(MKID) --outfile=ids/node7.json
+	$(MKID) --outfile=ids/node8.json
+	$(MKID) --outfile=ids/node9.json
+	$(MKID) --outfile=ids/node10.json
+	$(MKID) --outfile=ids/node11.json
+	$(MKALIASES) --include ids/raft-dialer.json --include ids/node1.json --include ids/node2.json --include ids/node3.json --include ids/node4.json --include ids/node5.json --include ids/node6.json --include ids/node7.json --include ids/node8.json --include ids/node9.json --include ids/node10.json --include ids/node11.json --outfile aliases.json

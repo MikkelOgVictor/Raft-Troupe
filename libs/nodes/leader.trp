@@ -50,7 +50,7 @@ fun leader_node node =
             let val prev_commit = node.log.commitIndex
                 val highest_commit = calc_highest_commit (map (fn x => x.match) node.leader_info.matchIndex)
                 val node = { node with log = update_commit node.log highest_commit }
-                val (applied_log, new_sm) = apply_log node.log node.state_machine true
+                val (applied_log, new_sm) = apply_log node.log node.state_machine true node.settings.leader_dialer_settings
                 val snapshot_log = 
                     if prev_commit < highest_commit then 
                         evaluate_snapshot_cond new_sm node.snapshot_cond applied_log
@@ -60,7 +60,7 @@ fun leader_node node =
                 val node = { node with log = snapshot_log, state_machine = new_sm}
             in 
                 case status of
-                "SUS" => if log_is_committed node.log then print "adding sus"; append_update node () (fn () => ()) (mkuuid())
+                "SUS" => if log_is_committed node.log then append_update node () (fn () => ()) (mkuuid())
                     else node
                 | _ => node
         end
@@ -77,11 +77,11 @@ fun leader_node node =
                     ]
                     in pause () end,
 
-                hn (SEND_HEARTBEAT, x) when nonce = x =>
+                hn ("SEND_HEARTBEAT", x) when nonce = x =>
                     verbose_print (node.id^": Sending heartbeat") node.verbose;
                     leader_node node,
 
-                hn (SEND_HEARTBEAT, x) =>
+                hn ("SEND_HEARTBEAT", x) =>
                     loop node,
 
                 (* Message has not been appended before *)
@@ -109,13 +109,12 @@ fun leader_node node =
                         val node = { node with leader_info = update_next_index node.leader_info peer (logIndex + 1) }
                         val node = apply_committed node
                         val next_index = get_next_index node.leader_info peer
-                    in (if prev_index < get_log_index node.log then 
+                    in (if not node.settings.TIE_COMMITS_TO_HEARTBEAT andalso 
+                        prev_index < get_log_index node.log then 
                             map (fn x => append_entries node x) 
                                 (filter (fn x => 
                                     let val next_index = get_next_index node.leader_info x 
                                     in x <> p_id andalso next_index.next > logIndex end) node.all_nodes)
-                        else if next_index.next <= get_log_index node.log then
-                            append_entries node peer 
                         else ());
                         loop node
                     end,
@@ -131,24 +130,24 @@ fun leader_node node =
 
                 (* If another node has been elected as a candidate, and
                     their term is in front of ours, convert to a follower *)
-                hn (REQUEST_VOTE, (c_term, c_id, c_log_index, c_log_term)) when c_term > node.term =>
+                hn ("REQUEST_VOTE", (c_term, c_id, c_log_index, c_log_term)) when c_term > node.term =>
                     verbose_print (node.id^": Voting yes") node.verbose;
                     send(c_id, (YES_VOTE, node.id));
                     follower (demote c_term () c_id node),
 
                 hn ("REQUEST_VOTE", (c_term, c_id, c_log_index, c_log_term)) =>
                     send(c_id, (NO_VOTE, node.id));
-                    loop node,
+                    loop ({node with term = max c_term node.term}),
 
                 (* If we receive snapshot from a leader in a higher term,
                 convert to follower *)
-                hn (SNAPSHOT, snapshot, l_id, other_term) when other_term > node.term =>
+                hn ("SNAPSHOT", snapshot, l_id, other_term) when other_term > node.term =>
                     verbose_print (node.id^": received Snapshot from leader, I must have lost position") node.verbose;
                     follower (demote other_term l_id () node),
                 
                 (* If we receive AppendEntries from a leader in a higher term,
                 convert to follower *)
-                hn (APPEND_ENTRIES, x, l_id, other_term, prevIndex, prevTerm, commitIndex) when other_term > node.term => 
+                hn ("APPEND_ENTRIES", x, l_id, other_term, prevIndex, prevTerm, commitIndex) when other_term > node.term => 
                     verbose_print (node.id^": received AppendEntries from leader, I must have lost position") node.verbose;
                     follower (demote other_term l_id () node),
                 
@@ -172,7 +171,7 @@ fun leader_node node =
     in 
         (* Append entries for each follower *)
         map (fn x => append_entries node x) (filter (fn x => x <> p_id) node.all_nodes);
-        start_timeout (fn () => send (p_id, (SEND_HEARTBEAT, nonce))) HEARTBEAT_INTERVAL;
+        start_timeout (fn () => send (p_id, (SEND_HEARTBEAT, nonce))) node.settings.HEARTBEAT_INTERVAL;
         loop node
 end
 (* EXPORT END *)

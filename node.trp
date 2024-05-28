@@ -113,15 +113,6 @@ let
     val CLUSTER = "CLUSTER"
     val CLIENT = "CLIENT"
 
-    val LOCAL_ERROR_TIMEOUT = 4000
-    val ELECTION_TIMEOUT_LOWER = 2000
-    val ELECTION_TIMEOUT_UPPER = 4000
-    val HEARTBEAT_INTERVAL = 500
-
-    val DIALER_NOLEADER_TIMEOUT = 500
-    val DIALER_NOMSG_TIMEOUT = 2000
-    val DIALER_SM_BUSY_TIMEOUT = 1000
-
     fun not a = a = false
     fun send_to_all processes msg sender = map (fn x => send(x, msg)) (filter (fn x => x <> sender) processes)
 
@@ -160,12 +151,12 @@ let
         send (to, m)
 
     (* Starts a random timeout with lower=2sec and upper=4sec *)
-    fun start_random_timeout func = start_timeout func (ELECTION_TIMEOUT_LOWER + ((random ()) * (ELECTION_TIMEOUT_UPPER - ELECTION_TIMEOUT_LOWER)))
+    fun start_random_timeout func settings = start_timeout func (settings.ELECTION_TIMEOUT_LOWER + ((random ()) * (settings.ELECTION_TIMEOUT_UPPER - settings.ELECTION_TIMEOUT_LOWER)))
 
     (* #IMPORT ./libs/dialer.trp *)
 
     (* Send the side-effect-messages to dialers or clusters *)
-    fun send_sides log sides =
+    fun send_sides log sides dialer_settings =
         (* Add message to key-value-store, sorting by the recipients. *)
         let fun add_msg id msg sk dict = case dict of
             [] => [(id, [(msg, sk)])]
@@ -177,15 +168,14 @@ let
             val (sorted_msgs, _) = case sides of
             [] => ([], 0)
             | x => foldl (fn ((callback, msg), (acc, seq)) =>
-                print msg;
                 (add_msg callback msg ({ id = callback, key = (log.lastApplied, seq)}) acc, seq + 1)
             ) ([], 1) x
         (* Sends all messages. *)
-        in map (fn x => raft_send x) sorted_msgs
+        in map (fn x => raft_send x dialer_settings) sorted_msgs
     end
 
     (* Applies all log-entries that have been committed, but not applied *)
-    fun apply_log log state_machine is_leader = 
+    fun apply_log log state_machine is_leader dialer_settings = 
         (* If any non-applied, committed logs apply... *)
         if log.lastApplied < log.commitIndex then
             (* Get the latest non-applied committed entry *)
@@ -198,9 +188,9 @@ let
             (* If leader is applying, execute side-effects. *)
             in (if is_leader then
                     entry.callback ();
-                    send_sides log new_sides
+                    send_sides log new_sides dialer_settings
                 else ());
-            apply_log log (new_sides, new_status, new_step) is_leader end
+            apply_log log (new_sides, new_status, new_step) is_leader dialer_settings end
         else (log, state_machine)
 
     (* #IMPORT ./libs/nodes/leader.trp *)
@@ -219,7 +209,7 @@ let
     
     (* Defines a default node, being a follower in term 1 without a leader and
     the state-machine in its beginning state *)
-    fun default_node id all_nodes node_amount state_machine snapshot_cond verbose = 
+    fun default_node id all_nodes node_amount state_machine snapshot_cond settings = 
         let val node = {
             all_nodes = all_nodes,
             id = id,
@@ -234,28 +224,29 @@ let
             snapshot_cond = snapshot_cond,
             node_amount = node_amount,
             serialkeys = [],
-            verbose = verbose
+            settings = settings,
+            verbose = true
         }
         in dormant_node node
     end
 
     (* Spawn a state-machine on a seperate thread, creates a record*)
-    fun initiate_node state_machine snapshot_cond node_amount id verbose = 
-        spawn (fn () => default_node id [] node_amount state_machine snapshot_cond verbose)
+    fun initiate_node state_machine snapshot_cond node_amount id settings = 
+        spawn (fn () => default_node id [] node_amount state_machine snapshot_cond settings)
 
     (* Sends a list of all nodes to all nodes *)
     fun add_refs nodes = 
         map (fn x => send(x, (ADD_NODES, nodes))) nodes
     
     (* Spawn n nodes*)
-    fun initiate_nodes n state_machine snapshot_cond verbose =
+    fun initiate_nodes n state_machine snapshot_cond settings =
         let val part_init = initiate_node state_machine snapshot_cond n
             fun spawn_nodes n acc_id =
                 case n of
                 0 => []
                 | x => append 
                     (spawn_nodes (x - 1) (acc_id ^ "I")) 
-                    [(part_init acc_id verbose)]
+                    [(part_init acc_id settings)]
 
             val nodes = spawn_nodes n "I"
         in 
@@ -280,48 +271,56 @@ let
             nodes
     end
 
+    val default_leader_dialer_settings = {
+        DIALER_NOLEADER_TIMEOUT = 500,
+        DIALER_NOMSG_TIMEOUT = 2000,
+        DIALER_SM_BUSY_TIMEOUT = 1000
+    }
+
+    val default_local_settings = {
+        ELECTION_TIMEOUT_LOWER = 2000,
+        ELECTION_TIMEOUT_UPPER = 4000,
+        HEARTBEAT_INTERVAL = 500,
+        TIE_COMMITS_TO_HEARTBEAT = true,
+        leader_dialer_settings = default_leader_dialer_settings
+    }
+
+    val default_distributed_settings = {
+        ELECTION_TIMEOUT_LOWER = default_local_settings.ELECTION_TIMEOUT_LOWER,
+        ELECTION_TIMEOUT_UPPER = default_local_settings.ELECTION_TIMEOUT_UPPER,
+        HEARTBEAT_INTERVAL = default_local_settings.HEARTBEAT_INTERVAL,
+        TIE_COMMITS_TO_HEARTBEAT = false,
+        leader_dialer_settings = default_local_settings.leader_dialer_settings
+    }
+
+    val default_dialer_settings = {
+        DIALER_NOLEADER_TIMEOUT = 500,
+        DIALER_NOMSG_TIMEOUT = 2000,
+        DIALER_SM_BUSY_TIMEOUT = 1000
+    }
+
     (* Spawns a dialer, dialing into a cluster. *)
-    fun raft_dial (cluster, client_id) =
-        spawn(fn () => dialer cluster client_id)
+    fun raft_dial (cluster, client_id, dialer_settings) =
+        spawn(fn () => dialer cluster client_id dialer_settings)
+    | raft_dial (cluster, client_id) = raft_dial (cluster, client_id, default_dialer_settings)
 
     (* Spawns a distributed Raft network, which can be dialed into to
     communicate with their state-machines *)
-    fun raft_spawn_alias (state_machine, aliases, snapshot_cond, verbose) = 
-        initiate_distributed_nodes aliases state_machine snapshot_cond verbose
+    fun raft_spawn_alias (state_machine, aliases, snapshot_cond, settings) = 
+        initiate_distributed_nodes aliases state_machine snapshot_cond settings
     | raft_spawn_alias (state_machine, aliases) = 
-        raft_spawn_alias (state_machine, aliases, 50, false)
+        raft_spawn_alias (state_machine, aliases, 50, default_distributed_settings)
 
     (* Spawns a Raft network, which can be contacted to
     communicate with their state-machines *)
-    fun raft_spawn (state_machine, n, snapshot_cond, verbose) =
-        initiate_nodes n state_machine snapshot_cond verbose
-    | raft_spawn (state_machine) = raft_spawn (state_machine, 5, 50, false)
+    fun raft_spawn (state_machine, n, snapshot_cond, settings) =
+        initiate_nodes n state_machine snapshot_cond settings
+    | raft_spawn (state_machine, n) = raft_spawn (state_machine, n, 50, default_local_settings)
 
-    (*fun raft_d (state_machine, client_id, aliases, snapshot_cond, verbose) =
-        let val nodes = raft_spawn_alias (state_machine, aliases, snapshot_cond, verbose)
-        in (raft_dial (nodes, client_id), nodes)
-    end
-    | raft_d (state_machine, client_id, aliases) = 
-        raft_d (state_machine, client_id, aliases, 50, false)
-
-    fun raft (state_machine, client_id, n, snapshot_cond, verbose) =
-        let val nodes = raft_spawn (state_machine, n, snapshot_cond, verbose)
-        in (raft_dial (nodes, client_id), nodes)
-    end
-    | raft (state_machine, client_id) = 
-        raft (state_machine, client_id, 5, 50, false)*)
-
-    val default_aliases = ["@node1", "@node2", "@node3"]
+    val default_aliases = ["@node1", "@node2", "@node3", "@node4", "@node5"]
 
     (* #IMPORT ./libs/state_machines/fib.trp *)
     (* #IMPORT ./tests/evaluation/fib_eval.trp *)
-
-    val pid = self()
-    val cluster = raft_spawn_alias (([], WAIT, fib_input), default_aliases)
-    val dialer = raft_dial(cluster, pid) 
-
 in 
-    sleep 5000;
-    print "begin";
-    print (measure_fib dialer 15)
+    print(measure_runtimes [5,8,10,12,15])
 end
