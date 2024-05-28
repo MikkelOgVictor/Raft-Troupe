@@ -264,7 +264,7 @@ let
             nodes
     end
 
-    val default_leader_dialer_settings = {
+    val default_dialer_settings = {
         DIALER_NOLEADER_TIMEOUT = 500,
         DIALER_NOMSG_TIMEOUT = 2000,
         DIALER_SM_BUSY_TIMEOUT = 1000
@@ -276,23 +276,19 @@ let
         HEARTBEAT_INTERVAL = 500,
         TIE_COMMITS_TO_HEARTBEAT = true,
         MAXIMUM_LOG_SIZE = 50,
-        leader_dialer_settings = default_leader_dialer_settings
+        leader_dialer_settings = default_dialer_settings
     }
 
     val default_distributed_settings = {
         ELECTION_TIMEOUT_LOWER = default_local_settings.ELECTION_TIMEOUT_LOWER,
         ELECTION_TIMEOUT_UPPER = default_local_settings.ELECTION_TIMEOUT_UPPER,
         HEARTBEAT_INTERVAL = default_local_settings.HEARTBEAT_INTERVAL,
-        MAXIMUM_LOG_SIZE = 50,
+        MAXIMUM_LOG_SIZE = default_local_settings.MAXIMUM_LOG_SIZE,
         TIE_COMMITS_TO_HEARTBEAT = false,
-        leader_dialer_settings = default_local_settings.leader_dialer_settings
+        leader_dialer_settings = default_local_settings.default_local_settings
     }
 
-    val default_dialer_settings = {
-        DIALER_NOLEADER_TIMEOUT = 500,
-        DIALER_NOMSG_TIMEOUT = 2000,
-        DIALER_SM_BUSY_TIMEOUT = 1000
-    }
+
 
     (* Spawns a dialer, dialing into a cluster. *)
     fun raft_dial (cluster, client_id, dialer_settings) =
@@ -312,15 +308,16 @@ let
         initiate_nodes n state_machine settings
     | raft_spawn (state_machine, n) = raft_spawn (state_machine, n, default_local_settings)
 
-    val default_aliases = ["@node1", "@node2", "@node3", "@node4", "@node5"]
-
-    (* #IMPORT ./libs/state_machines/fib.trp *)
-    (* #IMPORT ./tests/evaluation/fib_eval.trp *)
-
-    val pid = self()
-    val cluster = raft_spawn (([], WAIT, fib_input), 5)
-    val dialer = raft_dial (cluster, pid)
-in 
-    send(dialer, (RAFT_UPDATE, ({type = CLIENT, id = dialer}, 15)));
-    receive[hn x => print x]
+in [("raft_spawn_alias", raft_spawn_alias),
+    ("raft_spawn", raft_spawn),
+    ("raft_dial", raft_dial),
+    ("default_dialer_settings", default_dialer_settings),
+    ("default_distributed_settings", default_distributed_settings),
+    ("default_local_settings", default_local_settings),
+    ("WAIT", WAIT),
+    ("SUS", SUS),
+    ("DONE", DONE),
+    ("CLIENT", CLIENT),
+    ("CLUSTER", CLUSTER)
+    ]
 end
