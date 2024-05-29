@@ -114,6 +114,7 @@ let
     val CLIENT = "CLIENT"
 
     fun not a = a = false
+    val contains = elem
     fun send_to_all processes msg sender = map (fn x => send(x, msg)) (filter (fn x => x <> sender) processes)
 
     fun send_to_nth processes msg n = send((nth (reverse processes) n), msg)
@@ -248,16 +249,16 @@ let
     end
 
     (* Spawn a state-machine on some alias *)
-    fun initiate_distributed_node state_machine node_amount id alias = 
-        spawn(alias, fn () => (default_node id [] node_amount state_machine))
+    fun initiate_distributed_node state_machine node_amount id alias settings = 
+        spawn(alias, fn () => (default_node id [] node_amount state_machine settings))
 
-    fun initiate_distributed_nodes aliases state_machine =
+    fun initiate_distributed_nodes aliases state_machine settings =
         let val part_init = initiate_distributed_node state_machine (length(aliases))
             fun spawn_nodes acc acc_id =
                 case acc of 
                 [] => []
                 | h :: t =>
-                    append (spawn_nodes t (acc_id ^ "I")) [part_init acc_id h]
+                    append (spawn_nodes t (acc_id ^ "I")) [part_init acc_id h settings]
             val nodes = spawn_nodes aliases "I"
         in 
             add_refs nodes;
@@ -285,9 +286,8 @@ let
         HEARTBEAT_INTERVAL = default_local_settings.HEARTBEAT_INTERVAL,
         MAXIMUM_LOG_SIZE = default_local_settings.MAXIMUM_LOG_SIZE,
         TIE_COMMITS_TO_HEARTBEAT = false,
-        leader_dialer_settings = default_local_settings.default_local_settings
+        leader_dialer_settings = default_local_settings.leader_dialer_settings
     }
-
 
 
     (* Spawns a dialer, dialing into a cluster. *)
@@ -318,6 +318,7 @@ in [("raft_spawn_alias", raft_spawn_alias),
     ("SUS", SUS),
     ("DONE", DONE),
     ("CLIENT", CLIENT),
-    ("CLUSTER", CLUSTER)
+    ("CLUSTER", CLUSTER),
+    ("RAFT_UPDATE", RAFT_UPDATE)
     ]
 end
