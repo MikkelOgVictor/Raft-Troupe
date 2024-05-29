@@ -6,10 +6,10 @@ LOCAL=$(TROUPE)/local.sh
 LIBS := $(shell find libs -type f)
 TESTS := $(shell find tests -type f)
 
-run: build/node_dest.trp
-	$(LOCAL) ./build/node_dest.trp
+run: build/raft_troupe.trp
+	$(LOCAL) ./build/raft_troupe.trp
 
-build/node_dest.trp: node.trp $(LIBS) $(TESTS)
+build/raft_troupe.trp: node.trp $(LIBS) $(TESTS)
 	python build.py node.trp
 
 zero.listener1:
@@ -35,8 +35,8 @@ zero.listener10:
 zero.listener11:
 	$(START) zero.trp --id=ids/node11.json  --rspawn=true --aliases=aliases.json --stdiolev={} #
 
-raft.dialer: build/node_dest.trp
-	$(START) ./build/node_dest.trp --id=ids/raft-dialer.json --aliases=aliases.json
+raft.dialer: build/raft_troupe.trp
+	$(START) ./build/raft_troupe.trp --id=ids/raft-dialer.json --aliases=aliases.json
 
 test.dialer: 
 	$(START) test.trp --id=ids/raft-dialer.json --aliases=aliases.json # --debug --debugp2p

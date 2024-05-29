@@ -8,7 +8,7 @@ if len(sys.argv) < 2:
     exit(1)
 
 src = open(sys.argv[1], 'r')
-dest = open("build/" + sys.argv[1][:-4] + "_dest.trp", 'w')
+dest = open("build/raft_troupe.trp", 'w')
 
 print("Building:" + sys.argv[1])
 
