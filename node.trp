@@ -224,7 +224,8 @@ let
             snapshot_cond = settings.MAXIMUM_LOG_SIZE,
             node_amount = node_amount,
             serialkeys = [],
-            settings = settings
+            settings = settings,
+            verbose = true
         }
         in dormant_node node
     end
@@ -301,21 +302,21 @@ let
 
     (* Spawns a distributed Raft network, which can be dialed into to
     communicate with their state-machines *)
-    fun raft_spawn_alias (state_machine, aliases, snapshot_cond, settings) = 
-        initiate_distributed_nodes aliases state_machine snapshot_cond settings
+    fun raft_spawn_alias (state_machine, aliases, settings) = 
+        initiate_distributed_nodes aliases state_machine settings
     | raft_spawn_alias (state_machine, aliases) = 
-        raft_spawn_alias (state_machine, aliases, 50, default_distributed_settings)
+        raft_spawn_alias (state_machine, aliases, default_distributed_settings)
 
     (* Spawns a Raft network, which can be contacted to
     communicate with their state-machines *)
-    fun raft_spawn (state_machine, n, snapshot_cond, settings) =
-        initiate_nodes n state_machine snapshot_cond settings
-    | raft_spawn (state_machine, n) = raft_spawn (state_machine, n, 50, default_local_settings)
+    fun raft_spawn (state_machine, n, settings) =
+        initiate_nodes n state_machine settings
+    | raft_spawn (state_machine, n) = raft_spawn (state_machine, n, default_local_settings)
 
     val default_aliases = ["@node1", "@node2", "@node3", "@node4", "@node5"]
 
-    (* #IMPORT ./libs/state_machines/fib.trp *)
-    (* #IMPORT ./tests/evaluation/fib_eval.trp *)
-in 
-    print(measure_runtimes [5,8,10,12,15])
+    (* #IMPORT ./libs/state_machines/ping.trp *)
+    (* #IMPORT ./tests/bad_actor.trp *)
+    (* #IMPORT ./tests/ping-tests.trp *)
+in ping_badactor2 ()
 end

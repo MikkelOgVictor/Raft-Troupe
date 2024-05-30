@@ -1,25 +1,5 @@
 (* EXPORT START *)
 
-fun ping_test () = let 
-  val pid = self ()
-  val (dialer, cluster) = raft ((), pid)
-in 
-  print "Sending";
-  send(dialer, (RAFT_UPDATE, (fn () => ping_server cluster)));
-  send_delay (dialer, (RAFT_UPDATE, ({type = CLIENT, id = dialer}, 3))) 500;
-  print (receive [hn x => x])
-end
-
-(* fun ping_test2 () = let 
-  val pid = self ()
-  val raft = raft 5 (ping_server ()) 10 pid false 
-  fun loop x = let 
-    val _ = sleep 500
-    val _ = printString "ping"; send (raft, (RAFT_UPDATE, (pid, ("ping", x))))
-    val _ = print (receive [hn x => x])
-  in loop new_x end
-in loop 1 end *)
-
 fun ping_badactor_test () = let 
       val pid = self ()
       val ping_cluster = raft_spawn ((), 10, 50, true)
@@ -35,7 +15,7 @@ fun ping_badactor_test () = let
 
 fun ping_badactor2 () = let 
   val pid = self ()
-  val ping_cluster = raft_spawn ((), 11, 2, true)
+  val ping_cluster = raft_spawn ((), 11)
   val dialer = raft_dial (ping_cluster, pid)
   val _ =
     send(dialer, (RAFT_UPDATE, (fn () => ping_server { type = CLUSTER, id = ping_cluster})));
