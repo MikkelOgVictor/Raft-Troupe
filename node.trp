@@ -209,7 +209,7 @@ let
     
     (* Defines a default node, being a follower in term 1 without a leader and
     the state-machine in its beginning state *)
-    fun default_node id all_nodes node_amount state_machine snapshot_cond settings = 
+    fun default_node id all_nodes node_amount state_machine settings = 
         let val node = {
             all_nodes = all_nodes,
             id = id,
@@ -221,26 +221,25 @@ let
             state_machine = case state_machine of
                 (_, _, _) => state_machine
                 | _ => ([], WAIT, fn x => x ()),
-            snapshot_cond = snapshot_cond,
+            snapshot_cond = settings.MAXIMUM_LOG_SIZE,
             node_amount = node_amount,
             serialkeys = [],
-            settings = settings,
-            verbose = true
+            settings = settings
         }
         in dormant_node node
     end
 
     (* Spawn a state-machine on a seperate thread, creates a record*)
-    fun initiate_node state_machine snapshot_cond node_amount id settings = 
-        spawn (fn () => default_node id [] node_amount state_machine snapshot_cond settings)
+    fun initiate_node state_machine node_amount id settings = 
+        spawn (fn () => default_node id [] node_amount state_machine settings)
 
     (* Sends a list of all nodes to all nodes *)
     fun add_refs nodes = 
         map (fn x => send(x, (ADD_NODES, nodes))) nodes
     
     (* Spawn n nodes*)
-    fun initiate_nodes n state_machine snapshot_cond settings =
-        let val part_init = initiate_node state_machine snapshot_cond n
+    fun initiate_nodes n state_machine settings =
+        let val part_init = initiate_node state_machine n
             fun spawn_nodes n acc_id =
                 case n of
                 0 => []
@@ -255,23 +254,23 @@ let
     end
 
     (* Spawn a state-machine on some alias *)
-    fun initiate_distributed_node state_machine snapshot_cond node_amount id alias verbose = 
-        spawn(alias, fn () => (default_node id [] node_amount state_machine snapshot_cond verbose))
+    fun initiate_distributed_node state_machine node_amount id alias settings = 
+        spawn(alias, fn () => (default_node id [] node_amount state_machine settings))
 
-    fun initiate_distributed_nodes aliases state_machine snapshot_cond verbose =
-        let val part_init = initiate_distributed_node state_machine snapshot_cond (length(aliases))
+    fun initiate_distributed_nodes aliases state_machine settings =
+        let val part_init = initiate_distributed_node state_machine (length(aliases))
             fun spawn_nodes acc acc_id =
                 case acc of 
                 [] => []
                 | h :: t =>
-                    append (spawn_nodes t (acc_id ^ "I")) [part_init acc_id h verbose]
+                    append (spawn_nodes t (acc_id ^ "I")) [part_init acc_id h settings]
             val nodes = spawn_nodes aliases "I"
         in 
             add_refs nodes;
             nodes
     end
 
-    val default_leader_dialer_settings = {
+    val default_dialer_settings = {
         DIALER_NOLEADER_TIMEOUT = 500,
         DIALER_NOMSG_TIMEOUT = 2000,
         DIALER_SM_BUSY_TIMEOUT = 1000
@@ -282,21 +281,17 @@ let
         ELECTION_TIMEOUT_UPPER = 4000,
         HEARTBEAT_INTERVAL = 500,
         TIE_COMMITS_TO_HEARTBEAT = true,
-        leader_dialer_settings = default_leader_dialer_settings
+        MAXIMUM_LOG_SIZE = 50,
+        leader_dialer_settings = default_dialer_settings
     }
 
     val default_distributed_settings = {
         ELECTION_TIMEOUT_LOWER = default_local_settings.ELECTION_TIMEOUT_LOWER,
         ELECTION_TIMEOUT_UPPER = default_local_settings.ELECTION_TIMEOUT_UPPER,
         HEARTBEAT_INTERVAL = default_local_settings.HEARTBEAT_INTERVAL,
+        MAXIMUM_LOG_SIZE = default_local_settings.MAXIMUM_LOG_SIZE,
         TIE_COMMITS_TO_HEARTBEAT = false,
         leader_dialer_settings = default_local_settings.leader_dialer_settings
-    }
-
-    val default_dialer_settings = {
-        DIALER_NOLEADER_TIMEOUT = 500,
-        DIALER_NOMSG_TIMEOUT = 2000,
-        DIALER_SM_BUSY_TIMEOUT = 1000
     }
 
     (* Spawns a dialer, dialing into a cluster. *)
