@@ -114,6 +114,7 @@ let
     val CLIENT = "CLIENT"
 
     fun not a = a = false
+    val contains = elem
     fun send_to_all processes msg sender = map (fn x => send(x, msg)) (filter (fn x => x <> sender) processes)
 
     fun send_to_nth processes msg n = send((nth (reverse processes) n), msg)
@@ -314,9 +315,5 @@ let
     | raft_spawn (state_machine, n) = raft_spawn (state_machine, n, default_local_settings)
 
     val default_aliases = ["@node1", "@node2", "@node3", "@node4", "@node5"]
-
-    (* #IMPORT ./libs/state_machines/ping.trp *)
-    (* #IMPORT ./tests/bad_actor.trp *)
-    (* #IMPORT ./tests/ping-tests.trp *)
 in ()
 end

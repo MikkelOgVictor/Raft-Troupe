@@ -15,11 +15,11 @@ fun ping_badactor_test () = let
 
 fun ping_badactor2 () = let 
   val pid = self ()
-  val ping_cluster = raft_spawn ((), 11)
+  val ping_cluster = raft_spawn_alias ((), default_aliases)
   val dialer = raft_dial (ping_cluster, pid)
   val _ =
     send(dialer, (RAFT_UPDATE, (fn () => ping_server { type = CLUSTER, id = ping_cluster})));
-    spawn (fn () => bad_actor ping_cluster 11 1000 true)
+    spawn (fn () => bad_actor ping_cluster 5 1000 true)
   
   fun loop x = let
     val _ = send (dialer, (RAFT_UPDATE, ({type=CLIENT, id=dialer}, x)))
