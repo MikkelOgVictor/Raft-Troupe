@@ -318,5 +318,5 @@ let
     (* #IMPORT ./libs/state_machines/ping.trp *)
     (* #IMPORT ./tests/bad_actor.trp *)
     (* #IMPORT ./tests/ping-tests.trp *)
-in ping_badactor2 ()
+in ()
 end
